@@ -37,8 +37,9 @@ public class UserController {
         return user;
     }
 
-    @PutMapping("/{id}")
-    public User updateUser(@PathVariable int id, @Valid @RequestBody User user) {
+    @PutMapping
+    public User updateUser(@Valid @RequestBody User user) {
+        int id = user.getId();
         log.info("Получен запрос на обновление пользователя с id {}: {}", id, user);
         if (!users.containsKey(id)) {
             log.warn("Попытка обновить несуществующего пользователя с id {}", id);
@@ -48,7 +49,6 @@ public class UserController {
             user.setName(user.getLogin());
             log.debug("Имя пользователя пустое, заменено на логин: {}", user.getLogin());
         }
-        user.setId(id);
         users.put(id, user);
         log.info("Пользователь с id {} успешно обновлён: {}", id, user);
         return user;
