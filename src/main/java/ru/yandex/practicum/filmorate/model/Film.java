@@ -8,12 +8,13 @@ import lombok.Data;
 import ru.yandex.practicum.filmorate.validation.ReleaseDateConstraint;
 
 import java.time.LocalDate;
+
 @Data
 public class Film {
     private int id;
     @NotBlank(message = "Название не может быть пустым")
     private String name;
-    @Size(max=200 , message = "Описание не должно превышать 200 символов")
+    @Size(max = 200, message = "Слишком длинное описание")
     private String description;
     @NotNull(message = "Дата релиза обязательна")
     @ReleaseDateConstraint
@@ -21,4 +22,3 @@ public class Film {
     @Positive(message = "Продолжительность должна быть положительным числом")
     private int duration;
 }
-
