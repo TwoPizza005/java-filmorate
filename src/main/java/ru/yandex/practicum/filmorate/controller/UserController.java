@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.controller;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
 
@@ -13,7 +14,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 @RequestMapping("/users")
 @Slf4j
 public class UserController {
-
     private final Map<Integer, User> users = new HashMap<>();
     private final AtomicInteger idGenerator = new AtomicInteger(1);
 
@@ -26,6 +26,9 @@ public class UserController {
     @PostMapping
     public User addUser(@Valid @RequestBody User user) {
         log.info("Получен запрос на добавление пользователя: {}", user);
+        if (user.getLogin().contains(" ")) {
+            throw new ValidationException("Логин не должен содержать пробелы");
+        }
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
             log.debug("Имя пользователя пустое, заменено на логин: {}", user.getLogin());
@@ -43,7 +46,10 @@ public class UserController {
         log.info("Получен запрос на обновление пользователя с id {}: {}", id, user);
         if (!users.containsKey(id)) {
             log.warn("Попытка обновить несуществующего пользователя с id {}", id);
-            throw new ValidationException("Пользователь с id " + id + " не найден");
+            throw new NotFoundException("Пользователь с id " + id + " не найден");
+        }
+        if (user.getLogin().contains(" ")) {
+            throw new ValidationException("Логин не должен содержать пробелы");
         }
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());

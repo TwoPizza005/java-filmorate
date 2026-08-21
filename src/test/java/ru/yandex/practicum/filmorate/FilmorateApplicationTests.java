@@ -8,6 +8,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.User;
 
@@ -15,8 +16,7 @@ import java.time.LocalDate;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -44,6 +44,25 @@ public class FilmorateApplicationTests {
         validUser.setLogin("user123");
         validUser.setName("Имя");
         validUser.setBirthday(LocalDate.of(2000, 1, 1));
+    }
+
+    // ---- Вспомогательные методы для создания сущностей и получения id ----
+    private int createUserAndGetId() throws Exception {
+        String response = mockMvc.perform(post("/users")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validUser)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readValue(response, User.class).getId();
+    }
+
+    private int createFilmAndGetId() throws Exception {
+        String response = mockMvc.perform(post("/films")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(validFilm)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readValue(response, Film.class).getId();
     }
 
     // ---- FILM TESTS ----
@@ -125,8 +144,10 @@ public class FilmorateApplicationTests {
 
     @Test
     void shouldFailUpdateFilmWhenNameIsBlank() throws Exception {
+        int id = createFilmAndGetId();
+        validFilm.setId(id);
         validFilm.setName("");
-        mockMvc.perform(put("/films/1")
+        mockMvc.perform(put("/films")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validFilm)))
                 .andExpect(status().isBadRequest())
@@ -180,7 +201,7 @@ public class FilmorateApplicationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validUser)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.login").value("Логин не должен содержать пробелы"));
+                .andExpect(jsonPath("$.message").value("Логин не должен содержать пробелы"));
     }
 
     @Test
@@ -223,8 +244,10 @@ public class FilmorateApplicationTests {
 
     @Test
     void shouldFailUpdateUserWhenEmailIsBlank() throws Exception {
+        int id = createUserAndGetId();
+        validUser.setId(id);
         validUser.setEmail("");
-        mockMvc.perform(put("/users/1")
+        mockMvc.perform(put("/users")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validUser)))
                 .andExpect(status().isBadRequest())
