@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import ru.yandex.practicum.filmorate.exception.NotFoundException;
+import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.Film;
 
 import java.util.*;
@@ -23,7 +24,7 @@ public class FilmController {
 
     @PostMapping
     public Film addFilm(@Valid @RequestBody Film film) {
-        int id = idGenerator.getAndIncrement();
+        Integer id = idGenerator.getAndIncrement();
         film.setId(id);
         films.put(id, film);
         log.info("Добавлен фильм: {}", film);
@@ -32,7 +33,11 @@ public class FilmController {
 
     @PutMapping
     public Film updateFilm(@Valid @RequestBody Film film) {
-        int id = film.getId();
+        Integer id = film.getId();
+        if (id == null) {
+            log.warn("Попытка обновить фильм без указания id");
+            throw new ValidationException("id должен быть указан");
+        }
         if (!films.containsKey(id)) {
             log.warn("Ошибка изменения фильма: {}", film);
             throw new NotFoundException("Фильм с id " + id + " не найден");

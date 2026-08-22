@@ -26,14 +26,11 @@ public class UserController {
     @PostMapping
     public User addUser(@Valid @RequestBody User user) {
         log.info("Получен запрос на добавление пользователя: {}", user);
-        if (user.getLogin().contains(" ")) {
-            throw new ValidationException("Логин не должен содержать пробелы");
-        }
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
             log.debug("Имя пользователя пустое, заменено на логин: {}", user.getLogin());
         }
-        int id = idGenerator.getAndIncrement();
+        Integer id = idGenerator.getAndIncrement();
         user.setId(id);
         users.put(id, user);
         log.info("Пользователь успешно добавлен с id {}: {}", id, user);
@@ -42,14 +39,15 @@ public class UserController {
 
     @PutMapping
     public User updateUser(@Valid @RequestBody User user) {
-        int id = user.getId();
+        Integer id = user.getId();
         log.info("Получен запрос на обновление пользователя с id {}: {}", id, user);
+        if (id == null) {
+            log.warn("Попытка обновить пользователя без указания id");
+            throw new ValidationException("id должен быть указан");
+        }
         if (!users.containsKey(id)) {
             log.warn("Попытка обновить несуществующего пользователя с id {}", id);
             throw new NotFoundException("Пользователь с id " + id + " не найден");
-        }
-        if (user.getLogin().contains(" ")) {
-            throw new ValidationException("Логин не должен содержать пробелы");
         }
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());

@@ -200,7 +200,7 @@ public class FilmorateApplicationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(validUser)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Логин не должен содержать пробелы"));
+                .andExpect(jsonPath("$.login").value("Логин не должен содержать пробелы"));
     }
 
     @Test
