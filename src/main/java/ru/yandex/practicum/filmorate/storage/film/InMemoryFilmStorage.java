@@ -32,13 +32,19 @@ public class InMemoryFilmStorage implements FilmStorage {
             log.warn("Попытка обновить фильм без id");
             throw new IllegalArgumentException("Id должен быть указан");
         }
-        if (!films.containsKey(id)) {
+        Film existingFilm = films.get(id);
+        if (existingFilm == null) {
             log.warn("Фильм с id {} не найден", id);
             throw new NotFoundException("Фильм с id " + id + " не найден");
         }
-        films.put(id, film);
-        log.info("Обновлён фильм: {}", film);
-        return film;
+
+        existingFilm.setName(film.getName());
+        existingFilm.setDescription(film.getDescription());
+        existingFilm.setReleaseDate(film.getReleaseDate());
+        existingFilm.setDuration(film.getDuration());
+
+        log.info("Обновлён фильм: {}", existingFilm);
+        return existingFilm;
     }
 
     @Override
@@ -67,7 +73,6 @@ public class InMemoryFilmStorage implements FilmStorage {
         return films.values();
     }
 
-    //метод для чистки, возможно вызвать ток в тестах
     public void clear() {
         films.clear();
         idGenerator.set(1);

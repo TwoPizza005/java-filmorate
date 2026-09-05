@@ -32,13 +32,19 @@ public class InMemoryUserStorage implements UserStorage {
             log.warn("Попытка обновить пользователя без id");
             throw new IllegalArgumentException("Id должен быть указан");
         }
-        if (!users.containsKey(id)) {
+        User existingUser = users.get(id);
+        if (existingUser == null) {
             log.warn("Пользователь с id {} не найден", id);
             throw new NotFoundException("Пользователь с id " + id + " не найден");
         }
-        users.put(id, user);
-        log.info("Обновлён пользователь: {}", user);
-        return user;
+
+        existingUser.setEmail(user.getEmail());
+        existingUser.setLogin(user.getLogin());
+        existingUser.setName(user.getName());
+        existingUser.setBirthday(user.getBirthday());
+
+        log.info("Обновлён пользователь: {}", existingUser);
+        return existingUser;
     }
 
     @Override

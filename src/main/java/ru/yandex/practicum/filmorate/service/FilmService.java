@@ -58,7 +58,6 @@ public class FilmService {
 
     public List<Film> getTopFilms(int count) {
         return filmStorage.getAll().stream()
-                .filter(film -> !film.getLikes().isEmpty())
                 .sorted((f1, f2) -> Integer.compare(f2.getLikes().size(), f1.getLikes().size()))
                 .limit(count)
                 .collect(Collectors.toList());

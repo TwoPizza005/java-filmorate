@@ -337,6 +337,7 @@ public class FilmorateApplicationTests {
                 .andExpect(jsonPath("$[0].id").value(filmId));
     }
 
+    // ИЗМЕНЕНИЕ ЗДЕСЬ
     @Test
     void shouldRemoveLike() throws Exception {
         int filmId = createFilmAndGetId();
@@ -347,7 +348,9 @@ public class FilmorateApplicationTests {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/films/popular"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isEmpty());
+                // Теперь фильм должен остаться в списке, но без лайков
+                .andExpect(jsonPath("$[0].id").value(filmId))
+                .andExpect(jsonPath("$[0].likes").isEmpty());
     }
 
     @Test
