@@ -7,7 +7,7 @@ public class NoSpacesValidator implements ConstraintValidator<NoSpaces, String> 
     @Override
     public boolean isValid(String value, ConstraintValidatorContext context) {
         if (value == null) {
-            return true; // null обработает @NotBlank
+            return true;
         }
         return !value.contains(" ");
     }

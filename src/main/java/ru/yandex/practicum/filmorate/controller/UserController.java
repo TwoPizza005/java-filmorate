@@ -3,58 +3,75 @@ package ru.yandex.practicum.filmorate.controller;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
-import ru.yandex.practicum.filmorate.exception.NotFoundException;
-import ru.yandex.practicum.filmorate.exception.ValidationException;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.service.UserService;
 
-import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.Collection;
+import java.util.List;
 
 @RestController
 @RequestMapping("/users")
 @Slf4j
 public class UserController {
-    private final Map<Integer, User> users = new HashMap<>();
-    private final AtomicInteger idGenerator = new AtomicInteger(1);
+
+    private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
 
     @GetMapping
-    public List<User> getAll() {
-        log.info("Запрос на получение всех пользователей");
-        return new ArrayList<>(users.values());
+    public Collection<User> getAll() {
+        log.info("Запрос всех пользователей");
+        return userService.getAll();
     }
 
     @PostMapping
     public User addUser(@Valid @RequestBody User user) {
-        log.info("Получен запрос на добавление пользователя: {}", user);
+        // Заменяем пустое имя на логин
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
-            log.debug("Имя пользователя пустое, заменено на логин: {}", user.getLogin());
         }
-        Integer id = idGenerator.getAndIncrement();
-        user.setId(id);
-        users.put(id, user);
-        log.info("Пользователь успешно добавлен с id {}: {}", id, user);
-        return user;
+        log.info("Добавление пользователя: {}", user);
+        return userService.addUser(user);
     }
 
     @PutMapping
     public User updateUser(@Valid @RequestBody User user) {
-        Integer id = user.getId();
-        log.info("Получен запрос на обновление пользователя с id {}: {}", id, user);
-        if (id == null) {
-            log.warn("Попытка обновить пользователя без указания id");
-            throw new ValidationException("id должен быть указан");
-        }
-        if (!users.containsKey(id)) {
-            log.warn("Попытка обновить несуществующего пользователя с id {}", id);
-            throw new NotFoundException("Пользователь с id " + id + " не найден");
-        }
         if (user.getName() == null || user.getName().isBlank()) {
             user.setName(user.getLogin());
-            log.debug("Имя пользователя пустое, заменено на логин: {}", user.getLogin());
         }
-        users.put(id, user);
-        log.info("Пользователь с id {} успешно обновлён: {}", id, user);
-        return user;
+        log.info("Обновление пользователя: {}", user);
+        return userService.updateUser(user);
+    }
+
+    @PutMapping("/{userId}/friends/{friendId}")
+    public void addFriend(@PathVariable int userId, @PathVariable int friendId) {
+        log.info("Пользователь {} добавляет в друзья {}", userId, friendId);
+        userService.addFriend(userId, friendId);
+    }
+
+    @DeleteMapping("/{userId}/friends/{friendId}")
+    public void removeFriend(@PathVariable int userId, @PathVariable int friendId) {
+        log.info("Пользователь {} удаляет из друзей {}", userId, friendId);
+        userService.removeFriend(userId, friendId);
+    }
+
+    @GetMapping("/{userId}/friends")
+    public List<User> getFriends(@PathVariable int userId) {
+        log.info("Запрос друзей пользователя {}", userId);
+        return userService.getFriends(userId);
+    }
+
+    @GetMapping("/{userId}/friends/common/{otherId}")
+    public List<User> getCommonFriends(@PathVariable int userId, @PathVariable int otherId) {
+        log.info("Запрос общих друзей пользователей {} и {}", userId, otherId);
+        return userService.getCommonFriends(userId, otherId);
+    }
+
+    @GetMapping("/{id}")
+    public User getUser(@PathVariable int id) {
+        log.info("Запрос пользователя с id {}", id);
+        return userService.getUserById(id);
     }
 }

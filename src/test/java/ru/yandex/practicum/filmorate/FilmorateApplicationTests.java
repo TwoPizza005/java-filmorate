@@ -10,11 +10,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.User;
+import ru.yandex.practicum.filmorate.storage.film.InMemoryFilmStorage;
+import ru.yandex.practicum.filmorate.storage.user.InMemoryUserStorage;
 
 import java.time.LocalDate;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -27,11 +28,20 @@ public class FilmorateApplicationTests {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private InMemoryFilmStorage filmStorage;
+
+    @Autowired
+    private InMemoryUserStorage userStorage;
+
     private Film validFilm;
     private User validUser;
 
     @BeforeEach
     void setUp() {
+        filmStorage.clear();
+        userStorage.clear();
+
         validFilm = new Film();
         validFilm.setName("Матрица");
         validFilm.setDescription("Классика");
@@ -45,7 +55,6 @@ public class FilmorateApplicationTests {
         validUser.setBirthday(LocalDate.of(2000, 1, 1));
     }
 
-    // ---- Вспомогательные методы для создания сущностей и получения id ----
     private int createUserAndGetId() throws Exception {
         String response = mockMvc.perform(post("/users")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -63,8 +72,6 @@ public class FilmorateApplicationTests {
                 .andReturn().getResponse().getContentAsString();
         return objectMapper.readValue(response, Film.class).getId();
     }
-
-    // ---- FILM TESTS ----
 
     @Test
     void shouldAddValidFilm() throws Exception {
@@ -152,8 +159,6 @@ public class FilmorateApplicationTests {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.name").value("Название не может быть пустым"));
     }
-
-    // ---- USER TESTS ----
 
     @Test
     void shouldAddValidUser() throws Exception {
@@ -251,5 +256,134 @@ public class FilmorateApplicationTests {
                         .content(objectMapper.writeValueAsString(validUser)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.email").value("Email не может быть пустым"));
+    }
+
+    @Test
+    void shouldGetUserById() throws Exception {
+        int id = createUserAndGetId();
+        mockMvc.perform(get("/users/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.email").value(validUser.getEmail()));
+    }
+
+    @Test
+    void shouldReturn404WhenUserNotFound() throws Exception {
+        mockMvc.perform(get("/users/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Пользователь с id 999 не найден"));
+    }
+
+    @Test
+    void shouldGetFilmById() throws Exception {
+        int id = createFilmAndGetId();
+        mockMvc.perform(get("/films/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(id))
+                .andExpect(jsonPath("$.name").value(validFilm.getName()));
+    }
+
+    @Test
+    void shouldReturn404WhenFilmNotFound() throws Exception {
+        mockMvc.perform(get("/films/999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Фильм с id 999 не найден"));
+    }
+
+    @Test
+    void shouldAddFriend() throws Exception {
+        int userId = createUserAndGetId();
+        int friendId = createUserAndGetId();
+        mockMvc.perform(put("/users/{userId}/friends/{friendId}", userId, friendId))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/users/{userId}/friends", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(friendId));
+    }
+
+    @Test
+    void shouldRemoveFriend() throws Exception {
+        int userId = createUserAndGetId();
+        int friendId = createUserAndGetId();
+        mockMvc.perform(put("/users/{userId}/friends/{friendId}", userId, friendId))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/users/{userId}/friends/{friendId}", userId, friendId))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/users/{userId}/friends", userId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void shouldReturnCommonFriends() throws Exception {
+        int user1 = createUserAndGetId();
+        int user2 = createUserAndGetId();
+        int commonFriend = createUserAndGetId();
+        mockMvc.perform(put("/users/{userId}/friends/{friendId}", user1, commonFriend));
+        mockMvc.perform(put("/users/{userId}/friends/{friendId}", user2, commonFriend));
+        mockMvc.perform(get("/users/{userId}/friends/common/{otherId}", user1, user2))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(commonFriend));
+    }
+
+    @Test
+    void shouldAddLike() throws Exception {
+        int filmId = createFilmAndGetId();
+        int userId = createUserAndGetId();
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", filmId, userId))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/films/popular"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(filmId));
+    }
+
+    // ИЗМЕНЕНИЕ ЗДЕСЬ
+    @Test
+    void shouldRemoveLike() throws Exception {
+        int filmId = createFilmAndGetId();
+        int userId = createUserAndGetId();
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", filmId, userId))
+                .andExpect(status().isOk());
+        mockMvc.perform(delete("/films/{filmId}/like/{userId}", filmId, userId))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/films/popular"))
+                .andExpect(status().isOk())
+                // Теперь фильм должен остаться в списке, но без лайков
+                .andExpect(jsonPath("$[0].id").value(filmId))
+                .andExpect(jsonPath("$[0].likes").isEmpty());
+    }
+
+    @Test
+    void shouldReturnTopFilmsWithCount() throws Exception {
+        int film1 = createFilmAndGetId();
+        int film2 = createFilmAndGetId();
+        int user1 = createUserAndGetId();
+        int user2 = createUserAndGetId();
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film1, user1));
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film1, user2));
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film2, user1));
+        mockMvc.perform(get("/films/popular?count=1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(film1));
+        mockMvc.perform(get("/films/popular"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
+    }
+
+    @Test
+    void shouldReturn404WhenAddingFriendWithNonExistentUser() throws Exception {
+        int userId = createUserAndGetId();
+        mockMvc.perform(put("/users/{userId}/friends/999", userId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Пользователь с id 999 не найден"));
+    }
+
+    @Test
+    void shouldReturn404WhenLikingNonExistentFilm() throws Exception {
+        int userId = createUserAndGetId();
+        mockMvc.perform(put("/films/999/like/{userId}", userId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Фильм с id 999 не найден"));
     }
 }
