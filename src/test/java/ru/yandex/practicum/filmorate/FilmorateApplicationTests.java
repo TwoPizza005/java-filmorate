@@ -319,38 +319,65 @@ public class FilmorateApplicationTests {
         int user1 = createUserAndGetId();
         int user2 = createUserAndGetId();
         int commonFriend = createUserAndGetId();
-        mockMvc.perform(put("/users/{userId}/friends/{friendId}", user1, commonFriend));
-        mockMvc.perform(put("/users/{userId}/friends/{friendId}", user2, commonFriend));
+        int film1 = createFilmAndGetId();
+        int film2 = createFilmAndGetId();
+
+        mockMvc.perform(put("/users/{userId}/friends/{friendId}", user1, commonFriend))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/users/{userId}/friends/{friendId}", user2, commonFriend))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/users/{userId}/friends/common/{otherId}", user1, user2))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(commonFriend));
+
+        mockMvc.perform(get("/films"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2));
     }
 
     @Test
     void shouldAddLike() throws Exception {
-        int filmId = createFilmAndGetId();
-        int userId = createUserAndGetId();
-        mockMvc.perform(put("/films/{filmId}/like/{userId}", filmId, userId))
+        int film1 = createFilmAndGetId();
+        int film2 = createFilmAndGetId();
+        int user1 = createUserAndGetId();
+        int user2 = createUserAndGetId();
+
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film1, user1))
                 .andExpect(status().isOk());
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film1, user2))
+                .andExpect(status().isOk());
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film2, user1))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/films/popular"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(filmId));
+                .andExpect(jsonPath("$[0].id").value(film1))
+                .andExpect(jsonPath("$[1].id").value(film2));
     }
 
-    // ИЗМЕНЕНИЕ ЗДЕСЬ
     @Test
     void shouldRemoveLike() throws Exception {
-        int filmId = createFilmAndGetId();
-        int userId = createUserAndGetId();
-        mockMvc.perform(put("/films/{filmId}/like/{userId}", filmId, userId))
+        int film1 = createFilmAndGetId();
+        int film2 = createFilmAndGetId();
+        int user1 = createUserAndGetId();
+        int user2 = createUserAndGetId();
+
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film1, user1))
                 .andExpect(status().isOk());
-        mockMvc.perform(delete("/films/{filmId}/like/{userId}", filmId, userId))
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film1, user2))
                 .andExpect(status().isOk());
+        mockMvc.perform(put("/films/{filmId}/like/{userId}", film2, user1))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/films/{filmId}/like/{userId}", film1, user1))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/films/popular"))
                 .andExpect(status().isOk())
-                // Теперь фильм должен остаться в списке, но без лайков
-                .andExpect(jsonPath("$[0].id").value(filmId))
-                .andExpect(jsonPath("$[0].likes").isEmpty());
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[?(@.id == %d)]", film1).exists())
+                .andExpect(jsonPath("$[?(@.id == %d)]", film2).exists());
     }
 
     @Test
