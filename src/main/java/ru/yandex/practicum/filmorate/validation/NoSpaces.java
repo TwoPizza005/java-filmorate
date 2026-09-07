@@ -10,6 +10,8 @@ import java.lang.annotation.*;
 @Constraint(validatedBy = NoSpacesValidator.class)
 public @interface NoSpaces {
     String message() default "Логин не должен содержать пробелы";
+
     Class<?>[] groups() default {};
+
     Class<? extends Payload>[] payload() default {};
 }
