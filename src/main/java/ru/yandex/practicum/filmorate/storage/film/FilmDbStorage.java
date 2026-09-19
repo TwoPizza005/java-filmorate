@@ -24,7 +24,9 @@ import java.util.Optional;
 public class FilmDbStorage implements FilmStorage {
 
     private final JdbcTemplate jdbc;
+
     private final FilmRowMapper filmRowMapper;
+
     private final GenreRowMapper genreRowMapper;
 
     private static final String FIND_ALL_SQL =

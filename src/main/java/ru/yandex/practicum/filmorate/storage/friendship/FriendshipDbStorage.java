@@ -13,6 +13,7 @@ import java.util.List;
 public class FriendshipDbStorage implements FriendshipStorage {
 
     private final JdbcTemplate jdbc;
+
     private final UserRowMapper userRowMapper;
 
     private static final String ADD_FRIEND_SQL =
