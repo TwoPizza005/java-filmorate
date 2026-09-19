@@ -110,7 +110,11 @@ class FriendshipDbStorageTest {
         friendshipStorage.removeFriend(user.getId(), friend.getId());
 
         assertThat(friendshipStorage.getFriends(user.getId())).isEmpty();
-        assertThat(friendshipStorage.getFriends(friend.getId())).isEmpty();
+
+        assertThat(friendshipStorage.getFriends(friend.getId()))
+                .hasSize(1)
+                .extracting(User::getId)
+                .containsExactly(user.getId());
     }
 
     @Test
