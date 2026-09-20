@@ -146,6 +146,7 @@ public class FilmDbStorage implements FilmStorage {
     public List<Film> getAll() {
         List<Film> films = jdbc.query(FIND_ALL_SQL, filmRowMapper);
         enrichWithGenres(films);
+        enrichWithLikes(films);
         return films;
     }
 
@@ -153,6 +154,7 @@ public class FilmDbStorage implements FilmStorage {
     public List<Film> getPopular(int count) {
         List<Film> films = jdbc.query(FIND_POPULAR_SQL, filmRowMapper, count);
         enrichWithGenres(films);
+        enrichWithLikes(films);
         return films;
     }
 
@@ -206,6 +208,37 @@ public class FilmDbStorage implements FilmStorage {
 
         for (Film film : films) {
             film.setGenres(genresByFilm.getOrDefault(film.getId(), new LinkedHashSet<>()));
+        }
+    }
+
+    private void enrichWithLikes(List<Film> films) {
+        if (films.isEmpty()) {
+            return;
+        }
+
+        List<Integer> filmIds = films.stream()
+                .map(Film::getId)
+                .collect(Collectors.toList());
+
+        String placeholders = filmIds.stream()
+                .map(id -> "?")
+                .collect(Collectors.joining(", "));
+
+        String sql =
+                "SELECT film_id, user_id FROM likes WHERE film_id IN (" + placeholders + ")";
+
+        Map<Integer, Set<Integer>> likesByFilm = new HashMap<>();
+
+        jdbc.query(sql, rs -> {
+            int filmId = rs.getInt("film_id");
+            int userId = rs.getInt("user_id");
+            likesByFilm
+                    .computeIfAbsent(filmId, k -> new HashSet<>())
+                    .add(userId);
+        }, filmIds.toArray());
+
+        for (Film film : films) {
+            film.setLikes(likesByFilm.getOrDefault(film.getId(), new HashSet<>()));
         }
     }
 }
