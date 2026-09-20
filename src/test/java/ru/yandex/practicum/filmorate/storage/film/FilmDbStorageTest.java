@@ -154,12 +154,24 @@ class FilmDbStorageTest {
 
     @Test
     void testGetAll() {
-        filmStorage.addFilm(makeFilm("A"));
+        Film film1 = makeFilm("A");
+        film1.setGenres(Set.of(new Genre(1, "Комедия"), new Genre(2, "Драма")));
+        filmStorage.addFilm(film1);
+
         filmStorage.addFilm(makeFilm("B"));
         filmStorage.addFilm(makeFilm("C"));
 
         List<Film> all = filmStorage.getAll();
         assertThat(all).hasSize(3);
+
+        Film found = all.stream()
+                .filter(f -> f.getId().equals(film1.getId()))
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(found.getGenres())
+                .extracting(Genre::getName)
+                .containsExactlyInAnyOrder("Комедия", "Драма");
     }
 
     @Test

@@ -6,6 +6,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+import ru.yandex.practicum.filmorate.exception.NotFoundException;
 import ru.yandex.practicum.filmorate.model.Film;
 import ru.yandex.practicum.filmorate.model.Genre;
 import ru.yandex.practicum.filmorate.storage.mappers.FilmRowMapper;
@@ -14,19 +16,15 @@ import ru.yandex.practicum.filmorate.storage.mappers.GenreRowMapper;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Repository
 @RequiredArgsConstructor
 public class FilmDbStorage implements FilmStorage {
 
     private final JdbcTemplate jdbc;
-
     private final FilmRowMapper filmRowMapper;
-
     private final GenreRowMapper genreRowMapper;
 
     private static final String FIND_ALL_SQL =
@@ -77,7 +75,7 @@ public class FilmDbStorage implements FilmStorage {
                     "JOIN mpa_rating m ON f.mpa_id = m.mpa_id " +
                     "LEFT JOIN likes l ON f.film_id = l.film_id " +
                     "GROUP BY f.film_id, f.film_name, f.description, f.release_date, f.duration, f.mpa_id, m.name " +
-                    "ORDER BY likes_count DESC " +
+                    "ORDER BY likes_count DESC, f.film_id ASC " +
                     "LIMIT ?";
 
     private static final String ADD_LIKE_SQL =
@@ -87,6 +85,7 @@ public class FilmDbStorage implements FilmStorage {
             "DELETE FROM likes WHERE film_id = ? AND user_id = ?";
 
     @Override
+    @Transactional
     public Film addFilm(Film film) {
         KeyHolder keyHolder = new GeneratedKeyHolder();
 
@@ -103,10 +102,13 @@ public class FilmDbStorage implements FilmStorage {
 
         film.setId(keyHolder.getKey().intValue());
         saveGenres(film);
-        return film;
+
+        return getById(film.getId())
+                .orElseThrow(() -> new NotFoundException("Не удалось сохранить фильм: " + film.getId()));
     }
 
     @Override
+    @Transactional
     public Film updateFilm(Film film) {
         jdbc.update(UPDATE_FILM,
                 film.getName(),
@@ -119,7 +121,8 @@ public class FilmDbStorage implements FilmStorage {
         jdbc.update(DELETE_GENRES, film.getId());
         saveGenres(film);
 
-        return film;
+        return getById(film.getId())
+                .orElseThrow(() -> new NotFoundException("Фильм не найден: " + film.getId()));
     }
 
     @Override
@@ -141,12 +144,16 @@ public class FilmDbStorage implements FilmStorage {
 
     @Override
     public List<Film> getAll() {
-        return jdbc.query(FIND_ALL_SQL, filmRowMapper);
+        List<Film> films = jdbc.query(FIND_ALL_SQL, filmRowMapper);
+        enrichWithGenres(films);
+        return films;
     }
 
     @Override
     public List<Film> getPopular(int count) {
-        return jdbc.query(FIND_POPULAR_SQL, filmRowMapper, count);
+        List<Film> films = jdbc.query(FIND_POPULAR_SQL, filmRowMapper, count);
+        enrichWithGenres(films);
+        return films;
     }
 
     @Override
@@ -170,6 +177,35 @@ public class FilmDbStorage implements FilmStorage {
         }
         for (Genre genre : film.getGenres()) {
             jdbc.update(INSERT_GENRE_SQL, film.getId(), genre.getId());
+        }
+    }
+
+    private void enrichWithGenres(List<Film> films) {
+        if (films.isEmpty()) {
+            return;
+        }
+
+        List<Integer> filmIds = films.stream().map(Film::getId).collect(Collectors.toList());
+        String placeholders = filmIds.stream().map(id -> "?").collect(Collectors.joining(","));
+
+        String sql = "SELECT fg.film_id, g.genre_id, g.name " +
+                "FROM film_genre fg " +
+                "JOIN genre g ON g.genre_id = fg.genre_id " +
+                "WHERE fg.film_id IN (" + placeholders + ") " +
+                "ORDER BY fg.film_id, g.genre_id";
+
+        Map<Integer, Set<Genre>> genresByFilm = new HashMap<>();
+
+        jdbc.query(sql, rs -> {
+            int filmId = rs.getInt("film_id");
+            Genre genre = new Genre(rs.getInt("genre_id"), rs.getString("name"));
+            genresByFilm
+                    .computeIfAbsent(filmId, k -> new LinkedHashSet<>())
+                    .add(genre);
+        }, filmIds.toArray());
+
+        for (Film film : films) {
+            film.setGenres(genresByFilm.getOrDefault(film.getId(), new LinkedHashSet<>()));
         }
     }
 }

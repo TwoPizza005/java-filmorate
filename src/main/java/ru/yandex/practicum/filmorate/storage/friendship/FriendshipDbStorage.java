@@ -3,6 +3,7 @@ package ru.yandex.practicum.filmorate.storage.friendship;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 import ru.yandex.practicum.filmorate.model.User;
 import ru.yandex.practicum.filmorate.storage.mappers.UserRowMapper;
 
@@ -13,11 +14,13 @@ import java.util.List;
 public class FriendshipDbStorage implements FriendshipStorage {
 
     private final JdbcTemplate jdbc;
-
     private final UserRowMapper userRowMapper;
 
     private static final String ADD_FRIEND_SQL =
             "INSERT INTO friendship (user_id, friend_id, friend_status) VALUES (?, ?, 'UNCONFIRMED')";
+
+    private static final String ADD_FRIEND_CONFIRMED_SQL =
+            "INSERT INTO friendship (user_id, friend_id, friend_status) VALUES (?, ?, 'CONFIRMED')";
 
     private static final String CONFIRM_FRIEND_SQL =
             "UPDATE friendship SET friend_status = 'CONFIRMED' WHERE user_id = ? AND friend_id = ?";
@@ -43,6 +46,7 @@ public class FriendshipDbStorage implements FriendshipStorage {
                     "WHERE f1.user_id = ? AND f2.user_id = ?";
 
     @Override
+    @Transactional
     public void addFriend(int userId, int friendId) {
         Integer existing = jdbc.queryForObject(COUNT_SQL, Integer.class, userId, friendId);
         if (existing != null && existing > 0) {
@@ -53,8 +57,7 @@ public class FriendshipDbStorage implements FriendshipStorage {
 
         if (incoming != null && incoming > 0) {
             jdbc.update(CONFIRM_FRIEND_SQL, friendId, userId);
-            jdbc.update("INSERT INTO friendship (user_id, friend_id, friend_status) " +
-                    "VALUES (?, ?, 'CONFIRMED')", userId, friendId);
+            jdbc.update(ADD_FRIEND_CONFIRMED_SQL, userId, friendId);
         } else {
             jdbc.update(ADD_FRIEND_SQL, userId, friendId);
         }
